@@ -126,16 +126,16 @@ def construct_fit_start_params():
     return np.hstack((tau_start, int_start))
 
 
-x = least_squares(to_fit,
+fit = least_squares(to_fit,
                x0=construct_fit_start_params(),
                method='dogbox',
-               loss='arctan',
+               loss='soft_l1',
                jac='3-point',
                bounds=(0.1, 150),
                verbose=2)
 
-# stupid
-x = x['x']
+
+x = fit['x']
 
 plt.clf()
 plt.semilogy(X_train,
