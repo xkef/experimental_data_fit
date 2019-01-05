@@ -32,15 +32,15 @@ with open(path_to_file, 'r') as myfile:
 
 
 # range_end = 6001
-norm = 5 * 10 ** 3
+norm = 15 * 10 ** 3
 background = np.mean(counts[5000:5900])
 posC0 = 399
 sigma = 10
 # changed (kevin)
-xsp = np.linspace(1, 6000, 6000)
-x1 = np.linspace(1, 6000, 6000)
+X_train = np.linspace(1, 2000, 2000)
+Y_train = counts[1:2000+1]
 # Here we need array with 2 entries
-def my1expmodel(tau, intens, range_end, norm, background, posC0):
+def my1expmodel(tau, intens, range_end):
     array = []
     # range end is now an integer
     for afk in range(len(range_end)):
@@ -55,7 +55,7 @@ def my1expmodel(tau, intens, range_end, norm, background, posC0):
     return array
 
 
-def my2expmodel(tau, intens, range_end, norm, background, posC0):
+def my2expmodel(tau, intens, range_end):
     array = []
     # range end is now an integer
     for afk in range(len(range_end)):
@@ -72,7 +72,7 @@ def my2expmodel(tau, intens, range_end, norm, background, posC0):
 
 
 # Here we need array with 2 entries
-def my4expmodel(tau, intens, range_end, norm, background, posC0):
+def my4expmodel(tau, intens, range_end):
     array = []
     # range end is now an integer
     for afk in range(len(range_end)):
@@ -90,9 +90,9 @@ def my4expmodel(tau, intens, range_end, norm, background, posC0):
     return array
 
 
-def conv_nopoisson_4exp(tau, intens, range_end, norm, background, posC0, sigma):
+def conv_nopoisson_4exp(tau, intens, range_end):
     gauss_1D_kernel_250ps = Gaussian1DKernel(sigma)
-    values4expmodel = my4expmodel(tau, intens, range_end, norm, background, posC0)
+    values4expmodel = my4expmodel(tau, intens, range_end)
     astropy_conv = convolve(values4expmodel, gauss_1D_kernel_250ps)
     return astropy_conv
 
@@ -110,13 +110,9 @@ def to_fit(params):
     :param params: ndarray shape (2,)
     :return: ndarray
     """
-    return conv_nopoisson_4exp(range_end=xsp,
-                        norm=norm,
-                        background=background,
-                        posC0=posC0,
-                        sigma=sigma,
+    return conv_nopoisson_4exp(range_end=X_train,
                         tau=params[0:4],
-                        intens=params[4:])
+                        intens=params[4:])-Y_train
 
 
 def construct_fit_start_params():
@@ -133,28 +129,31 @@ def construct_fit_start_params():
 x = least_squares(to_fit,
                x0=construct_fit_start_params(),
                method='dogbox',
-               loss='linear',
-               bounds=(0.01, 150),
+               loss='arctan',
+               jac='3-point',
+               bounds=(0.1, 150),
                verbose=2)
 
 # stupid
 x = x['x']
 
 plt.clf()
-plt.semilogy(x1,
-            conv_nopoisson_4exp(range_end=xsp,
-                        norm=norm,
-                        background=background,
-                        posC0=posC0,
-                        sigma=sigma,
+plt.semilogy(X_train,
+            conv_nopoisson_4exp(range_end=X_train,
                         tau=x[0:4],
                         intens=x[4:]),
              label='fit')
 
-plt.semilogy(x1, counts[1:], label='real data')
+plt.semilogy(X_train,
+            conv_nopoisson_4exp(range_end=X_train,
+                        tau=construct_fit_start_params()[0:4],
+                        intens=construct_fit_start_params()[4:]),
+             label='start')
+
+
+plt.semilogy(X_train, Y_train, label='real data')
 plt.xlabel('250ps/bin')
 plt.ylabel('counts')
 plt.legend(loc='best')
 plt.title('kev fit')
 plt.savefig('fit.pdf')
-
