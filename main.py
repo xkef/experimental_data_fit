@@ -74,7 +74,8 @@ def Jacobian(x, *params):
 def main_fit(X_train, Y_train, a, b):
     X_train = X_train[397:2000]
     Y_train = Y_train[397:2000] / Y_train[397:].max()
-
+    print(a, b)
+    params = np.hstack((a,b))
     def fitter(params):
         return exp_decay(
             range_end=X_train, a=params[0:5], b=params[5:]) - Y_train
@@ -114,7 +115,9 @@ def exp_decay(a, b, range_end):
 
 
 # Parallel Grid Search for Start Values
-def para_fit(i):
+def para_fit(X_train, Y_train, i):
+    X_train = X_train[397:2000]
+    Y_train = Y_train[397:2000] / Y_train[397:].max()
     # init for parallel grid search
     a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
     a*=np.random.rand(5,)
@@ -128,7 +131,7 @@ def para_fit(i):
 
 def run_parallel():
     # 1000  random fits to maxiter 100
-    Parallel(n_jobs=-1)(delayed(para_fit)(i) for i in range(50))
+    Parallel(n_jobs=-1)(delayed(para_fit)(X_train, Y_train, i) for i in range(50))
 
 ################################################################################
 ################################################################################
