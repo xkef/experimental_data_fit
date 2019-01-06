@@ -23,7 +23,6 @@ from astropy.convolution import Gaussian1DKernel, convolve
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
 from kaufmann import *
-from diffevolve import *
 
 path_to_file = 'hT__Heterostructure_5keV_BGO.txt'
 counts = []
@@ -47,128 +46,98 @@ X_train = np.linspace(1, 5000, 5000)
 Y_train = counts[1:5000 + 1]
 
 
+def Jacobian(x, *params):
+    # wolfram alpha:
+    # jacobian (a_0, a_1*exp(-b_1*x), a_2*exp(-b_2*x),a_3*exp(-b_3*x),a_4*exp(-b_4*x)) with respect to (a_0, a_1, a_2, a_3, a_4, b_1, b_2, b_3, b_4)
+    a = params[0:5]
+    b = params[5:]
+    J = np.array([
+         [
+             1, 0, 0, 0, 0, 0, 0, 0, 0
+         ],
+         [
+          0, np.exp(-x * b[1]), 0, 0, 0, -np.exp(-x * b[1]) * x * a[1], 0, 0, 0
+         ],
+         [
+          0, 0, np.exp(-x * b[2]), 0, 0, 0, -np.exp(-x * b[2]) * x * a[2], 0, 0
+         ],
+         [
+          0, 0, 0, np.exp(-x * b[3]), 0, 0, 0, -np.exp(-x * b[3]) * x * a[3], 0
+         ],
+         [
+          0, 0, 0, 0, np.exp(-x * b[4]), 0, 0, 0, -np.exp(-x * b[4]) * x * a[4]
+         ]
+                 ])
+    return J
 
-def fit_kaufmann(X_train, Y_train):
-    X_train = X_train[399:]
-    Y_train = Y_train[399:] / Y_train.max()
 
+def kaufmann_inits(X_train, Y_train):
+    X_train = X_train[397:2000]
+    Y_train = Y_train[397:2000] / Y_train[397:].max()
     a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
-    Y_fit = a[0] + np.dot(a[1:], np.exp(-np.outer(b, X_train)))
+    a[3] = 0.1
+    print(a)
 
-    Y_fit = Y_fit / Y_fit.max()
+    def fitter(params):
+        return exp_decay(
+            range_end=X_train, a=params[0:5], b=params[5:]) - Y_train
+
+    fit = least_squares(
+        fitter,
+        x0=np.hstack((a, b)),
+        method='dogbox',
+        loss='arctan',
+        #jac=Jacobian,
+        #bounds=(0, 150),
+        verbose=2)
     plt.clf()
-    plt.semilogy(X_train, Y_fit, label='Fit')
-    plt.semilogy(X_train, Y_train, label='Train')
+    plt.semilogy(X_train, exp_decay(range_end=X_train, a=a, b=b), label='fit')
+    plt.semilogy(X_train, Y_train, label='real data')
     plt.xlabel('250ps/bin')
     plt.ylabel('counts')
     plt.legend(loc='best')
-    plt.title('kaufmann fit')
-    plt.savefig('plots/fit_kaufmann.pdf')
+    plt.title('random fit')
+    plt.savefig('plots/fit_kaufmann_start_params.pdf')
+    print(fit)
+    return fit
 
-
-def fit_diffevolve(X_train, Y_train):
-    X_train = X_train[399:]
-    Y_train = Y_train[399:] / Y_train.max()
-
-    a, b = ExpFitDiffEvol(int(4), X_train, Y_train)
-    Y_fit = np.dot(a, np.exp(-np.outer(b, X_train)))
-
-    Y_fit = Y_fit / Y_fit.max()
-    plt.clf()
-    plt.plot(X_train, Y_fit, label='Fit')
-    plt.plot(X_train, Y_train, label='Train')
-    plt.xlabel('250ps/bin')
-    plt.ylabel('counts')
-    plt.legend(loc='best')
-    plt.title('diffevolve fit')
-    plt.savefig('plots/fit_diffevolve.pdf')
-
-
-def my4expmodel(tau, intens, range_end):
+def exp_decay(a, b, range_end):
     array = []
     # range end is now an integer
-    for afk in range(len(range_end)):
-        if afk < posC0:
-            value = 0.
-            value = value + background
-        else:
-            value = intens[0] / (tau[0]) * np.exp(-(afk - posC0) / (tau[0] * 4)) \
-                    + intens[1] / (tau[1]) * np.exp(-(afk - posC0) / (tau[1] * 4)) \
-                    + intens[2] / (tau[2]) * np.exp(-(afk - posC0) / (tau[2] * 4)) \
-                    + intens[3] / (tau[3]) * np.exp(-(afk - posC0) / (tau[3] * 4))
-            value = value * norm
-            value = value + background
+    for x in range(len(range_end)):
+        value = a[0] + a[1] * np.exp(-abs(b[0])*x)   \
+                     + a[2] * np.exp(-abs(b[1])*x)   \
+                     + a[3] * np.exp(-abs(b[2])*x)   \
+                     + a[4] * np.exp(-abs(b[3])*x)
         array = np.append(array, value)
-    return array
 
-
-def conv_nopoisson_4exp(tau, intens, range_end):
     gauss_1D_kernel_250ps = Gaussian1DKernel(sigma)
-    values4expmodel = my4expmodel(tau, intens, range_end)
-    astropy_conv = convolve(values4expmodel, gauss_1D_kernel_250ps)
-    return astropy_conv
-
-
-def to_fit(params):
-    return conv_nopoisson_4exp(
-        range_end=X_train, tau=params[0:4], intens=params[4:]) - Y_train
+    astropy_conv = convolve(array, gauss_1D_kernel_250ps)
+    return astropy_conv / astropy_conv.max()
 
 
 def construct_fit_start_params():
-    tau_start = [140., 20., 0.6, 0.125]# * np.random.rand(4, )
-    int_start = [20.0, 15.0, 15.0, 25.0]# * np.random.rand(4, )
-    return np.hstack((tau_start, int_start))
+    a= [0, 140., 20., 0.6, 0.125, 0] * np.random.rand(5, )
+    b = [20.0, 15.0, 15.0, 25.0] * np.random.rand(4, )
+    return np.hstack((a, b))
 
 
 def para_fit(i):
-    fit = least_squares(
-                        to_fit,
-                        x0=construct_fit_start_params(),
-                        method='dogbox',
-                        loss='soft_l1',
-                        max_nfev=100,
-                        xtol=1e-14,
-                        gtol=1e-14,
-                        ftol=1e-14,
-                        jac='3-point',
-                        bounds=(0, 150),
-                        verbose=0
-                        )
-
+    # init for parallel grid search
+    fit = None
     if (fit['x'].shape[0] > 0):
         np.savetxt('results/params' + str(i) + '.txt',
                    np.atleast_1d(fit['optimality']))
         np.savetxt('results/optimality' + str(i) + '.txt', fit['x'])
-    return fit
 
 
 def run_parallel():
     # 1000  random fits to maxiter 100
     Parallel(n_jobs=-1)(delayed(para_fit)(i) for i in range(50))
 
-
-def plot(x):
-    plt.clf()
-    plt.semilogy(
-        X_train,
-        conv_nopoisson_4exp(range_end=X_train, tau=x[0:4], intens=x[4:]),
-        label='fit')
-
-    plt.semilogy(X_train, Y_train, label='real data')
-    plt.xlabel('250ps/bin')
-    plt.ylabel('counts')
-    plt.legend(loc='best')
-    plt.title('random fit')
-    plt.savefig('plots/withoutcut_fit.pdf')
-
-
 ################################################################################
 ################################################################################
-
 
 if __name__ == '__main__':
-    fit_kaufmann(X_train, Y_train)
-    #fit_diffevolve(X_train, Y_train)
-    #run_parallel()
-    plot(para_fit(19)['x'])
-
+    # run_parallel()
+    kaufmann_inits(X_train, Y_train)
