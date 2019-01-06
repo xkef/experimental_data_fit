@@ -87,16 +87,16 @@ def main_fit(X_train, Y_train, a, b):
         loss='soft_l1',
         #jac=Jacobian,
         #bounds=(0, 150),
-        verbose=2)
-    plt.clf()
-    plt.semilogy(X_train, exp_decay(range_end=X_train, a=a, b=b), label='fit')
-    plt.semilogy(X_train, Y_train, label='real data')
-    plt.xlabel('250ps/bin')
-    plt.ylabel('counts')
-    plt.legend(loc='best')
-    plt.title('random fit')
-    plt.savefig('plots/fit_kaufmann_start_params.pdf')
-    print(fit)
+        verbose=0)
+   # plt.clf()
+   # plt.semilogy(X_train, exp_decay(range_end=X_train, a=a, b=b), label='fit')
+   # plt.semilogy(X_train, Y_train, label='real data')
+   # plt.xlabel('250ps/bin')
+   # plt.ylabel('counts')
+   # plt.legend(loc='best')
+   # plt.title('random fit')
+   # plt.savefig('plots/fit_kaufmann_start_params.pdf')
+   # print(fit)
     return fit
 
 def exp_decay(a, b, range_end):
@@ -131,7 +131,7 @@ def para_fit(X_train, Y_train, i):
 
 def run_parallel():
     # 1000  random fits to maxiter 100
-    Parallel(n_jobs=-1)(delayed(para_fit)(X_train, Y_train, i) for i in range(50))
+    Parallel(n_jobs=-1)(delayed(para_fit)(X_train, Y_trainrain, i) for i in range(50))
 
 ################################################################################
 ################################################################################
