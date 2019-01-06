@@ -136,5 +136,5 @@ def run_parallel():
 ################################################################################
 
 if __name__ == '__main__':
-    # run_parallel()
-    kaufmann_inits(X_train, Y_train)
+    run_parallel()
+    #kaufmann_inits(X_train, Y_train)
