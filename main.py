@@ -70,6 +70,23 @@ def Jacobian(x, *params):
                  ])
     return J
 
+def fit_kaufmann(X_train, Y_train):
+    X_train = X_train[399:]
+    Y_train = Y_train[399:] / Y_train.max()
+
+    a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
+    Y_fit = a[0] + np.dot(a[1:], np.exp(-np.outer(b, X_train)))
+
+    Y_fit = Y_fit / Y_fit.max()
+    plt.clf()
+    plt.semilogy(X_train, Y_fit, label='Fit')
+    plt.semilogy(X_train, Y_train, label='Train')
+    plt.xlabel('250ps/bin')
+    plt.ylabel('counts')
+    plt.legend(loc='best')
+    plt.title('kaufmann fit')
+    plt.savefig('plots/fit_kaufmann.pdf')
+
 
 def main_fit(X_train, Y_train, a, b):
     X_train = X_train[397:2000]
@@ -137,5 +154,5 @@ def run_parallel():
 ################################################################################
 
 if __name__ == '__main__':
-    run_parallel()
-    #kaufmann_inits(X_train, Y_train)
+    #run_parallel()
+    fit_kaufmann(X_train, Y_train)
