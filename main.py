@@ -71,11 +71,10 @@ def Jacobian(x, *params):
     return J
 
 
-def kaufmann_inits(X_train, Y_train):
+def main_fit(X_train, Y_train, a, b):
     X_train = X_train[397:2000]
     Y_train = Y_train[397:2000] / Y_train[397:].max()
     a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
-    a[3] = 0.1
     print(a)
 
     def fitter(params):
@@ -86,7 +85,7 @@ def kaufmann_inits(X_train, Y_train):
         fitter,
         x0=np.hstack((a, b)),
         method='dogbox',
-        loss='arctan',
+        loss='soft_l1',
         #jac=Jacobian,
         #bounds=(0, 150),
         verbose=2)
@@ -105,10 +104,10 @@ def exp_decay(a, b, range_end):
     array = []
     # range end is now an integer
     for x in range(len(range_end)):
-        value = a[0] + a[1] * np.exp(-abs(b[0])*x)   \
-                     + a[2] * np.exp(-abs(b[1])*x)   \
-                     + a[3] * np.exp(-abs(b[2])*x)   \
-                     + a[4] * np.exp(-abs(b[3])*x)
+        value = abs(a[0]) + abs(a[1]) * np.exp(-abs(b[0])*x)   \
+                     + abs(a[2]) * np.exp(-abs(b[1])*x)   \
+                     + abs(a[3]) * np.exp(-abs(b[2])*x)   \
+                     + abs(a[4]) * np.exp(-abs(b[3])*x)
         array = np.append(array, value)
 
     gauss_1D_kernel_250ps = Gaussian1DKernel(sigma)
@@ -116,15 +115,13 @@ def exp_decay(a, b, range_end):
     return astropy_conv / astropy_conv.max()
 
 
-def construct_fit_start_params():
-    a= [0, 140., 20., 0.6, 0.125, 0] * np.random.rand(5, )
-    b = [20.0, 15.0, 15.0, 25.0] * np.random.rand(4, )
-    return np.hstack((a, b))
-
-
+# Parallel Grid Search for Start Values
 def para_fit(i):
     # init for parallel grid search
-    fit = None
+    a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
+    a*=np.random.rand(5,)
+    b*=np.random.rand(4,)
+    fit = main_fit(X_train, Y_train, a, b)
     if (fit['x'].shape[0] > 0):
         np.savetxt('results/params' + str(i) + '.txt',
                    np.atleast_1d(fit['optimality']))
