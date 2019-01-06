@@ -22,6 +22,8 @@ import numpy as np
 from astropy.convolution import Gaussian1DKernel, convolve
 from scipy.optimize import least_squares
 from joblib import Parallel, delayed
+from kaufmann import *
+from diffevolve import *
 
 path_to_file = 'hT__Heterostructure_5keV_BGO.txt'
 counts = []
@@ -45,7 +47,43 @@ X_train = np.linspace(1, 2000, 2000)
 Y_train = counts[1:2000 + 1]
 
 
-# Here we need array with 2 entries
+
+def fit_kaufmann(X_train, Y_train):
+    X_train = X_train[399:]
+    Y_train = Y_train[399:] / Y_train.max()
+
+    a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
+    Y_fit = a[0] + np.dot(a[1:], np.exp(-np.outer(b, X_train)))
+
+    Y_fit = Y_fit / Y_fit.max()
+    plt.clf()
+    plt.plot(X_train, Y_fit, label='Fit')
+    plt.plot(X_train, Y_train, label='Train')
+    plt.xlabel('250ps/bin')
+    plt.ylabel('counts')
+    plt.legend(loc='best')
+    plt.title('kaufmann fit')
+    plt.savefig('plots/fit_kaufmann.pdf')
+
+
+def fit_diffevolve(X_train, Y_train):
+    X_train = X_train[399:]
+    Y_train = Y_train[399:] / Y_train.max()
+
+    a, b = ExpFitDiffEvol(int(4), X_train, Y_train)
+    Y_fit = np.dot(a, np.exp(-np.outer(b, X_train)))
+
+    Y_fit = Y_fit / Y_fit.max()
+    plt.clf()
+    plt.plot(X_train, Y_fit, label='Fit')
+    plt.plot(X_train, Y_train, label='Train')
+    plt.xlabel('250ps/bin')
+    plt.ylabel('counts')
+    plt.legend(loc='best')
+    plt.title('diffevolve fit')
+    plt.savefig('plots/fit_diffevolve.pdf')
+
+
 def my4expmodel(tau, intens, range_end):
     array = []
     # range end is now an integer
@@ -71,10 +109,6 @@ def conv_nopoisson_4exp(tau, intens, range_end):
     return astropy_conv
 
 
-################################################################################
-################################################################################
-
-
 def to_fit(params):
     return conv_nopoisson_4exp(
         range_end=X_train, tau=params[0:4], intens=params[4:]) - Y_train
@@ -88,48 +122,53 @@ def construct_fit_start_params():
 
 def para_fit(i):
     fit = least_squares(
-        to_fit,
-        x0=construct_fit_start_params(),
-        method='dogbox',
-        loss='soft_l1',
-        max_nfev=100,
-        xtol=1e-14,
-        gtol=1e-14,
-        ftol=1e-14,
-        jac='3-point',
-        bounds=(0, 150),
-        verbose=0)
+                        to_fit,
+                        x0=construct_fit_start_params(),
+                        method='dogbox',
+                        loss='soft_l1',
+                        max_nfev=100,
+                        xtol=1e-14,
+                        gtol=1e-14,
+                        ftol=1e-14,
+                        jac='3-point',
+                        bounds=(0, 150),
+                        verbose=0
+                        )
 
     if (fit['x'].shape[0] > 0):
         np.savetxt('results/params' + str(i) + '.txt',
                    np.atleast_1d(fit['optimality']))
         np.savetxt('results/optimality' + str(i) + '.txt', fit['x'])
+    return fit
 
 
-# 1000  random fits to maxiter 100
-Parallel(n_jobs=-1)(delayed(para_fit)(i) for i in range(1000))
+def run_parallel():
+    # 1000  random fits to maxiter 100
+    Parallel(n_jobs=-1)(delayed(para_fit)(i) for i in range(50))
+
+
+def plot(x):
+    plt.clf()
+    plt.plot(
+        X_train,
+        conv_nopoisson_4exp(range_end=X_train, tau=x[0:4], intens=x[4:]),
+        label='fit')
+
+    plt.plot(X_train, Y_train, label='real data')
+    plt.xlabel('250ps/bin')
+    plt.ylabel('counts')
+    plt.legend(loc='best')
+    plt.title('random fit')
+    plt.savefig('plots/withoutcut_fit.pdf')
+
 
 ################################################################################
 ################################################################################
 
-# x = fit['x']
 
-# plt.clf()
-# plt.semilogy(X_train,
-#             conv_nopoisson_4exp(range_end=X_train,
-#                         tau=x[0:4],
-#                         intens=x[4:]),
-#              label='fit')
+if __name__ == '__main__':
+    fit_kaufmann(X_train, Y_train)
+    fit_diffevolve(X_train, Y_train)
+    #run_parallel()
+    plot(para_fit(19)['x'])
 
-# plt.semilogy(X_train,
-#             conv_nopoisson_4exp(range_end=X_train,
-#                         tau=construct_fit_start_params()[0:4],
-#                         intens=construct_fit_start_params()[4:]),
-#              label='start')
-
-# plt.semilogy(X_train, Y_train, label='real data')
-# plt.xlabel('250ps/bin')
-# plt.ylabel('counts')
-# plt.legend(loc='best')
-# plt.title('kev fit')
-# plt.savefig('fit.pdf')
