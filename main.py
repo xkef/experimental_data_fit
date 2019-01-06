@@ -43,8 +43,8 @@ background = np.mean(counts[5000:5900])
 posC0 = 399
 sigma = 10
 # changed (kevin)
-X_train = np.linspace(1, 2000, 2000)
-Y_train = counts[1:2000 + 1]
+X_train = np.linspace(1, 5000, 5000)
+Y_train = counts[1:5000 + 1]
 
 
 
@@ -57,8 +57,8 @@ def fit_kaufmann(X_train, Y_train):
 
     Y_fit = Y_fit / Y_fit.max()
     plt.clf()
-    plt.plot(X_train, Y_fit, label='Fit')
-    plt.plot(X_train, Y_train, label='Train')
+    plt.semilogy(X_train, Y_fit, label='Fit')
+    plt.semilogy(X_train, Y_train, label='Train')
     plt.xlabel('250ps/bin')
     plt.ylabel('counts')
     plt.legend(loc='best')
@@ -115,8 +115,8 @@ def to_fit(params):
 
 
 def construct_fit_start_params():
-    tau_start = [140., 20., 0.6, 0.125] * np.random.rand(4, )
-    int_start = [20.0, 15.0, 15.0, 25.0] * np.random.rand(4, )
+    tau_start = [140., 20., 0.6, 0.125]# * np.random.rand(4, )
+    int_start = [20.0, 15.0, 15.0, 25.0]# * np.random.rand(4, )
     return np.hstack((tau_start, int_start))
 
 
@@ -149,12 +149,12 @@ def run_parallel():
 
 def plot(x):
     plt.clf()
-    plt.plot(
+    plt.semilogy(
         X_train,
         conv_nopoisson_4exp(range_end=X_train, tau=x[0:4], intens=x[4:]),
         label='fit')
 
-    plt.plot(X_train, Y_train, label='real data')
+    plt.semilogy(X_train, Y_train, label='real data')
     plt.xlabel('250ps/bin')
     plt.ylabel('counts')
     plt.legend(loc='best')
@@ -168,7 +168,7 @@ def plot(x):
 
 if __name__ == '__main__':
     fit_kaufmann(X_train, Y_train)
-    fit_diffevolve(X_train, Y_train)
+    #fit_diffevolve(X_train, Y_train)
     #run_parallel()
     plot(para_fit(19)['x'])
 
