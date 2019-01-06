@@ -131,7 +131,7 @@ def para_fit(X_train, Y_train, i):
 
 def run_parallel():
     # 1000  random fits to maxiter 100
-    Parallel(n_jobs=-1)(delayed(para_fit)(X_train, Y_trainrain, i) for i in range(50))
+    Parallel(n_jobs=-1)(delayed(para_fit)(X_train, Y_train, i) for i in range(50))
 
 ################################################################################
 ################################################################################
