@@ -74,8 +74,6 @@ def Jacobian(x, *params):
 def main_fit(X_train, Y_train, a, b):
     X_train = X_train[397:2000]
     Y_train = Y_train[397:2000] / Y_train[397:].max()
-    a, b = Kaufmann2003Solve(int(4), X_train, Y_train)
-    print(a)
 
     def fitter(params):
         return exp_decay(
